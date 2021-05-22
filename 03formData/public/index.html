@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <!-- 非图片类型的文件变灰无法被点击 -->
+    <input type="file" id="fileInp" accept="image/*">
+    <br>
+    <img id="serverImg">
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="fileTxt">
+        <input type="text" name="text">
+        <input type="submit" value="注册">
+    </form>
+</body>
+</html>
+<script src="./request.js"></script>
+<script>
+    let limitType = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    let limitMax = 100 * 1024;
+    // 监听文件输入框的变化
+    fileInp.onchange = async function () {
+        // 获取文件对象
+        let file = fileInp.files[0];
+        // 排除上传非文件
+        if (!file) return;
+        // 限制上传类型mime type
+        if (!limitType.includes(file.type)) {
+            alert('不支持的上传格式！')
+            fileInp.value = '';
+            return
+        }
+        // 限制上传大小
+        if (file.size > limitMax) {
+            alert('最大只能上传100KB')
+            fileInp.value = '';
+            return
+        }
+        // 通过FormData类创建一个空对象
+        let formData = new FormData()
+        // 默认Content-Type: multipart/form-data
+        // 通过append()方法来追加数据
+        formData.append('chunk', file);
+        console.log(formData)
+        // 发送文件信息
+        let res = await request({
+            url: '/upload',
+            method: 'POST',
+            data: formData
+        })
+        if (res.data.code === 0) {
+            serverImg.src = res.data.path
+        }
+    }
+</script>

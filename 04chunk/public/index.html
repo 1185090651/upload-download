@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <input type="file" id="fileInp"><span id="progress">0%</span>
+    <br>
+    <img id="serverImg">
+</body>
+
+</html>
+<script src="./request.js"></script>
+<script>
+    // 封装格式化文件名方法
+    function formatFilename(filename, i) {
+        // 最后一个点的在文件名的下标
+        let dotIndex = filename.lastIndexOf('.'),
+            // 文件名称
+            name = filename.substring(0, dotIndex),
+            // 文件后缀
+            suffix = filename.substring(dotIndex + 1);
+        name = `${name}-${i}`
+        // 返回加密后的文件名
+        return `${name}.${suffix}`
+    }
+    // 实例代理器修改进度
+    let _data = new Proxy([], {
+        set(target, key, value) {
+            target[key] = value;
+            let sum = _data.reduce((prev, next) => {
+                return prev + next
+            }, 0)
+            if (sum >= 100) {
+                progress.innerHTML = '上传完成'
+                return
+            }
+            progress.innerHTML = `${sum}%`
+        }
+    })
+    // 监听文件输入框的变化
+    fileInp.onchange = async function () {
+        // 获取文件对象
+        let file = fileInp.files[0];
+        // 把一个文件切成五个切片（固定切片数量，也可以固定切片大小）
+        let partSize = file.size / 5;
+        let cur = 0; // 当前的文件大小
+        let i = 0; // 当前切片的索引
+        let partList = []; //存放切片的数组
+
+        while (i < 5) {
+            partList.push({
+                chunk: file.slice(cur, cur + partSize),
+                filename: formatFilename(file.name, i)
+            });
+            cur += partSize;
+            i++;
+        }
+        // 并发切片请求
+        partList = partList.map(async (item, index) => {
+            let formData = new FormData()
+            formData.append('chunk', item.chunk);
+            formData.append('filename', item.filename);
+            let res = await request({
+                url: '/chunk',
+                method: 'POST',
+                data: formData,
+                onProgress: ev => {
+                    _data[index] = Math.round(ev.loaded / ev.total * 20)
+                }
+            })
+            if (res.data.code !== 0) return Promise.reject(res)
+            return Promise.resolve(res)
+        })
+        // 合并切片
+        await Promise.all(partList);
+        // 发送合并切片请求
+        let mergeRes = await request({
+            url: '/merge',
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json"
+            },
+            data: JSON.stringify({
+                filename: file.name
+            })
+        })
+        if (mergeRes.data.code === 0) {
+            serverImg.src = mergeRes.data.path
+        }
+    }
+</script>
