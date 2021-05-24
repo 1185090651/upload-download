@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title></title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="">
+</head>
+
+<body>
+    <script src="./request.js"></script>
+    <script>
+const req = () => request({
+    url: '/test',
+    method: 'GET',
+    data: {}
+})
+class RequestLimit {
+    constructor(limit) {
+        this.limit = limit;
+        this.cur = 0;
+        this.task = [];
+    }
+    async req(request) {
+        if (this.cur >= this.limit) {
+            await new Promise(resolve => this.task.push(resolve))
+        }
+        this.cur++;
+        try {
+            await request();
+        } catch (res) {
+            return Promise.reject(res);
+        } finally {
+            this.cur--;
+            if (this.task.length) {
+                this.task.shift()();
+            }
+        }
+    }
+}
+const requestLimit = new RequestLimit(5)
+const arr = new Array(100).fill(req)
+arr.forEach(item => {
+    requestLimit.req(item)
+})
+    </script>
+</body>
+
+</html>
