@@ -17,7 +17,7 @@ var request = ({
             try {
                 data = JSON.parse(e.target.response)
             } catch (error) {
-                data.e.target.response
+                data = e.target.response
             }
             resolve({
                 data
